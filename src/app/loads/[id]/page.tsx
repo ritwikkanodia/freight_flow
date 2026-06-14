@@ -67,7 +67,7 @@ export default async function LoadDetailPage({
           </Card>
 
           {load.postings && load.postings.length > 0 && (
-            <LoadPostings postings={load.postings} />
+            <LoadPostings postings={load.postings} loadId={load.id} />
           )}
 
           <Card title={`Tasks (${doneTasks}/${load.tasks.length})`}>

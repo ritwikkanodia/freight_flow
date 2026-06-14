@@ -32,6 +32,7 @@ export interface Task {
 
 /** A posting of the load to an external load board (Trucker Path, DAT, ...). */
 export interface Posting {
+  id: number;
   partner: "Trucker Path" | "DAT" | "Truckstop";
   referenceNo: string;
   status: "Posted" | "Unposted";

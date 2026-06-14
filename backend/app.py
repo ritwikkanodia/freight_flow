@@ -4,6 +4,8 @@ Endpoints:
     GET /api/loads          -> list of loads (summary)
     GET /api/loads/<id>     -> single load with tasks + postings
     GET /api/loadboard      -> live, carrier-facing feed of posted loads
+    POST /api/postings/<id>/post  -> publish a posting to the load board
+    POST /api/loads/<id>/interest -> carrier rate offer -> sets carrier_rate
     GET /api/health         -> health check
 
 Responses are shaped to match the frontend's TypeScript `Load` interface
@@ -12,8 +14,9 @@ Responses are shaped to match the frontend's TypeScript `Load` interface
 Run:  python app.py   (or: flask --app app run --port 5001)
 """
 import os
+from datetime import datetime
 
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from flask_cors import CORS
 
 from db import get_connection
@@ -87,6 +90,7 @@ def load_detail(conn, row):
 
 def posting_to_dict(p):
     posting = {
+        "id": p["id"],
         "partner": p["partner"],
         "referenceNo": p["reference_no"],
         "status": p["status"],
@@ -186,6 +190,65 @@ def loadboard():
     ).fetchall()
     conn.close()
     return jsonify([loadboard_item(r) for r in rows])
+
+
+@app.post("/api/postings/<int:posting_id>/post")
+def post_to_loadboard(posting_id):
+    """Publish a posting to the load board (status -> Posted).
+
+    Stamps posted_at/posted_by so the posting shows up in the carrier-facing
+    /api/loadboard feed.
+    """
+    conn = get_connection()
+    row = conn.execute(
+        "SELECT id, load_id FROM postings WHERE id = ?", (posting_id,)
+    ).fetchone()
+    if row is None:
+        conn.close()
+        return jsonify({"error": "Posting not found"}), 404
+
+    now = datetime.now().strftime("%b %d, %Y, %I:%M %p")
+    conn.execute(
+        """
+        UPDATE postings
+        SET status = 'Posted', posted_at = ?, posted_by = COALESCE(posted_by, 'Broker')
+        WHERE id = ?
+        """,
+        (now, posting_id),
+    )
+    conn.commit()
+    updated = conn.execute(
+        "SELECT * FROM postings WHERE id = ?", (posting_id,)
+    ).fetchone()
+    conn.close()
+    return jsonify(posting_to_dict(updated))
+
+
+@app.post("/api/loads/<load_id>/interest")
+def express_interest(load_id):
+    """A carrier expresses interest in a posted load with a rate offer.
+
+    Body: {"rate": <number>}. The offered rate is written to the load's
+    carrier_rate. Returns the updated carrier_rate.
+    """
+    data = request.get_json(silent=True) or {}
+    rate = data.get("rate")
+    try:
+        rate = float(rate)
+    except (TypeError, ValueError):
+        return jsonify({"error": "A numeric 'rate' is required"}), 400
+    if rate <= 0:
+        return jsonify({"error": "Rate must be greater than 0"}), 400
+
+    conn = get_connection()
+    row = conn.execute("SELECT id FROM loads WHERE id = ?", (load_id,)).fetchone()
+    if row is None:
+        conn.close()
+        return jsonify({"error": "Load not found"}), 404
+    conn.execute("UPDATE loads SET carrier_rate = ? WHERE id = ?", (rate, load_id))
+    conn.commit()
+    conn.close()
+    return jsonify({"loadId": load_id, "carrierRate": rate})
 
 
 @app.get("/api/loads/<load_id>")
