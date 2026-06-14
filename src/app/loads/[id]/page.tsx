@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { fetchLoad, margin, formatUSD } from "@/lib/loads";
 import { StatusBadge } from "@/components/StatusBadge";
 import { LoadPostings } from "@/components/LoadPostings";
+import { SimulatedTrackingPanel } from "@/components/SimulatedTrackingPanel";
 
 export default async function LoadDetailPage({
   params,
@@ -40,18 +41,7 @@ export default async function LoadDetailPage({
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Left column */}
         <div className="space-y-6 lg:col-span-2">
-          <Card title="Route">
-            <div className="flex items-center gap-4">
-              <StopBlock label="Pickup" city={load.pickup.city} state={load.pickup.state} when={load.pickup.dateTime} />
-              <div className="flex-1 border-t-2 border-dashed border-gray-200" />
-              <StopBlock label="Drop-off" city={load.dropoff.city} state={load.dropoff.state} when={load.dropoff.dateTime} align="right" />
-            </div>
-            {load.currentLocation && (
-              <div className="mt-4 rounded-md bg-sky-50 px-3 py-2 text-sm text-sky-700">
-                📍 Current location: <span className="font-medium">{load.currentLocation}</span>
-              </div>
-            )}
-          </Card>
+          <SimulatedTrackingPanel load={load} />
 
           <Card title="Load Info">
             <dl className="grid grid-cols-2 gap-x-8 gap-y-4 sm:grid-cols-3">
@@ -168,30 +158,6 @@ function Info({ label, value }: { label: string; value: string }) {
     <div>
       <dt className="text-xs text-gray-500">{label}</dt>
       <dd className="mt-0.5 text-sm font-medium text-gray-900">{value}</dd>
-    </div>
-  );
-}
-
-function StopBlock({
-  label,
-  city,
-  state,
-  when,
-  align,
-}: {
-  label: string;
-  city: string;
-  state: string;
-  when: string;
-  align?: "right";
-}) {
-  return (
-    <div className={align === "right" ? "text-right" : ""}>
-      <div className="text-xs uppercase tracking-wide text-gray-400">{label}</div>
-      <div className="text-base font-semibold text-gray-900">
-        {city}, {state}
-      </div>
-      <div className="text-xs text-gray-500">{when}</div>
     </div>
   );
 }
