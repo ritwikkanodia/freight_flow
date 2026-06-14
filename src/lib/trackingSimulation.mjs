@@ -1,4 +1,4 @@
-const TOTAL_DURATION_MS = 95_000;
+const TOTAL_DURATION_MS = 110_000;
 
 const PHASES = [
   {
@@ -123,22 +123,42 @@ const PHASES = [
   },
   {
     startMs: 95_000,
+    endMs: 110_000,
+    status: "Proof of delivery pending",
+    riskLevel: "normal",
+    progressStart: 99,
+    progressEnd: 99,
+    location: (load) => `${load.dropoff.city}, ${load.dropoff.state} receiving dock`,
+    nextCheckpoint: "Warehouse POD sign-off",
+    eta: "Awaiting POD",
+    speedMph: 0,
+    accuracyFt: 22,
+    headingDeg: 0,
+    insight: {
+      title: "Offload complete, POD pending",
+      summary: "Driver app confirms offload, but delivery remains open until the warehouse signs the proof of delivery.",
+      recommendedAction: "Hold final delivery completion until the receiver POD is captured and matched to the load.",
+      customerUpdate: "Freight has been unloaded and is awaiting receiver POD sign-off.",
+    },
+  },
+  {
+    startMs: 110_000,
     endMs: Infinity,
     status: "Delivered",
     riskLevel: "complete",
     progressStart: 100,
     progressEnd: 100,
     location: (load) => `${load.dropoff.city}, ${load.dropoff.state}`,
-    nextCheckpoint: "Proof of delivery",
+    nextCheckpoint: "Delivery complete",
     eta: "Completed",
     speedMph: 0,
     accuracyFt: 22,
     headingDeg: 0,
     insight: {
-      title: "Offload confirmed",
-      summary: "Driver app update confirmed offload completion with no shortage, damage, or detention reported.",
-      recommendedAction: "Move proof-of-delivery collection to the next task and close in-transit monitoring.",
-      customerUpdate: "Shipment has delivered and offload is complete.",
+      title: "POD received",
+      summary: "Warehouse has signed the proof of delivery after offload completion.",
+      recommendedAction: "Close in-transit monitoring and mark the delivery complete.",
+      customerUpdate: "Shipment has delivered and the receiver has signed the POD.",
     },
   },
 ];
@@ -204,6 +224,7 @@ const MONITORING_UPDATES = [
     startMs: 54_000,
     completeMs: 63_000,
     type: "call",
+    severity: "escalation",
     title: "ETA risk call",
     purpose: "Escalated call because GPS progress fell behind plan.",
     message: "Call completed. Driver confirmed long loading and slower traffic. Receiving should hold the dock for the revised ETA.",
@@ -242,6 +263,14 @@ const MONITORING_UPDATES = [
     purpose: "Close delivery monitoring without a call.",
     message: "Driver app update confirms offload completed with no shortage, damage, or detention reported.",
   },
+  {
+    startMs: 96_000,
+    completeMs: 108_000,
+    type: "app",
+    title: "POD received",
+    purpose: "Verify receiver sign-off before completing delivery.",
+    message: "Warehouse signed the proof of delivery. Delivery can now be marked complete.",
+  },
 ];
 
 export function getTrackingFrame(load, elapsedMs, durationMs = TOTAL_DURATION_MS) {
@@ -274,6 +303,7 @@ export function getTrackingFrame(load, elapsedMs, durationMs = TOTAL_DURATION_MS
     insight: phase.insight,
     updates: MONITORING_UPDATES.filter((update) => adjustedElapsed >= update.startMs).map((update) => ({
       type: update.type,
+      severity: update.severity || "normal",
       title: update.title,
       purpose: update.purpose,
       message: update.message,
@@ -284,6 +314,7 @@ export function getTrackingFrame(load, elapsedMs, durationMs = TOTAL_DURATION_MS
       title: update.title,
       purpose: update.purpose,
       transcript: update.transcript,
+      severity: update.severity || "normal",
       state: adjustedElapsed >= update.completeMs ? "complete" : "scheduled",
     })),
   };
@@ -327,6 +358,9 @@ const STOP_COORDINATES = {
   "Dallas, TX": { lat: 32.7767, lng: -96.7970 },
   "New Brockton, AL": { lat: 31.3852, lng: -85.9294 },
   "Garland, TX": { lat: 32.9126, lng: -96.6389 },
+  "Houston, TX": { lat: 29.7604, lng: -95.3698 },
+  "Dothan, AL": { lat: 31.2232, lng: -85.3905 },
+  "Mesquite, TX": { lat: 32.7668, lng: -96.5992 },
   "Mcallen, TX": { lat: 26.2034, lng: -98.2300 },
   "Laredo, TX": { lat: 27.5036, lng: -99.5076 },
   "Watsonville, CA": { lat: 36.9102, lng: -121.7569 },

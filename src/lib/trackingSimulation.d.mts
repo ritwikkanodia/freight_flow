@@ -4,11 +4,13 @@ export interface TrackingCall {
   title: string;
   purpose: string;
   transcript?: string;
+  severity: "normal" | "escalation";
   state: "scheduled" | "complete";
 }
 
 export interface TrackingUpdate {
   type: "gps" | "app" | "geofence" | "sms" | "signal" | "call";
+  severity: "normal" | "escalation";
   title: string;
   purpose: string;
   message: string;
