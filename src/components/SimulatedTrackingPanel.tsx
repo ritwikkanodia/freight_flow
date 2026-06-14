@@ -7,8 +7,9 @@ import {
   buildCallRecordingSegments,
   getTrackingFrame,
 } from "@/lib/trackingSimulation.mjs";
+import { LoadLifecycleRail } from "@/components/LoadLifecycleRail";
 
-const SIM_DURATION_MS = 95_000;
+const SIM_DURATION_MS = 110_000;
 const MAP_ZOOM = 6;
 const TILE_SIZE = 256;
 
@@ -65,7 +66,9 @@ export function SimulatedTrackingPanel({ load }: { load: Load }) {
     useState<RecordingStatus>("idle");
   const [recordingProgress, setRecordingProgress] =
     useState<RecordingProgress>(createRecordingProgress());
+  const [activeEscalation, setActiveEscalation] = useState<TrackingUpdate | null>(null);
   const playbackRef = useRef<PlaybackController>(createPlaybackController());
+  const notifiedEscalationsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     const startedAt = Date.now();
@@ -87,6 +90,18 @@ export function SimulatedTrackingPanel({ load }: { load: Load }) {
     [elapsedMs, load]
   );
   const completedUpdates = frame.updates.filter((update) => update.state === "complete").length;
+  const timelineUpdates = [...frame.updates].reverse();
+  const latestEscalation = timelineUpdates.find((update) => update.severity === "escalation") ?? null;
+
+  useEffect(() => {
+    if (!latestEscalation || notifiedEscalationsRef.current.has(latestEscalation.title)) {
+      return;
+    }
+
+    notifiedEscalationsRef.current.add(latestEscalation.title);
+    setActiveEscalation(latestEscalation);
+    notifyEscalation(latestEscalation);
+  }, [latestEscalation]);
 
   function stopRecording() {
     stopPlaybackController(playbackRef.current);
@@ -166,6 +181,8 @@ export function SimulatedTrackingPanel({ load }: { load: Load }) {
   }
 
   return (
+    <>
+    <LoadLifecycleRail load={load} trackingFrame={frame} />
     <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
@@ -183,6 +200,26 @@ export function SimulatedTrackingPanel({ load }: { load: Load }) {
       </div>
 
       <TrackingMap load={load} frame={frame} />
+
+      {activeEscalation && (
+        <div
+          className="mt-4 flex items-start justify-between gap-3 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-red-800 shadow-sm ring-1 ring-red-200 animate-pulse"
+          role="alert"
+        >
+          <div>
+            <div className="text-xs font-semibold uppercase tracking-wide">Escalation notified</div>
+            <div className="mt-1 text-sm font-semibold">{activeEscalation.title}</div>
+            <p className="mt-1 text-sm leading-5 text-red-700">{activeEscalation.message}</p>
+          </div>
+          <button
+            className="rounded-md px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-100"
+            onClick={() => setActiveEscalation(null)}
+            type="button"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       <dl className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-5">
         <Metric label="Current location" value={frame.location} wide />
@@ -212,9 +249,16 @@ export function SimulatedTrackingPanel({ load }: { load: Load }) {
             </div>
             <div className="text-xs font-medium text-gray-500">Next: {frame.nextCheckpoint}</div>
           </div>
-          <div className="mt-3 space-y-2">
-            {frame.updates.map((update) => (
-              <details key={update.title} className="rounded-md border border-gray-100 bg-gray-50 px-3 py-2">
+          <div className="mt-3 h-80 space-y-2 overflow-y-auto pr-1">
+            {timelineUpdates.map((update) => (
+              <details
+                key={update.title}
+                className={`rounded-md border px-3 py-2 ${
+                  update.severity === "escalation"
+                    ? "border-red-300 bg-red-50 ring-1 ring-red-200 animate-pulse"
+                    : "border-gray-100 bg-gray-50"
+                }`}
+              >
                 <summary className="cursor-pointer list-none">
                   <div className="flex items-center justify-between gap-3">
                     <div className="min-w-0">
@@ -256,7 +300,30 @@ export function SimulatedTrackingPanel({ load }: { load: Load }) {
         </div>
       </div>
     </section>
+    </>
   );
+}
+
+function notifyEscalation(update: TrackingUpdate) {
+  if (typeof window === "undefined" || !("Notification" in window)) return;
+
+  const showNotification = () => {
+    new Notification(`Escalation: ${update.title}`, {
+      body: update.message,
+      tag: update.title,
+    });
+  };
+
+  if (Notification.permission === "granted") {
+    showNotification();
+    return;
+  }
+
+  if (Notification.permission === "default") {
+    void Notification.requestPermission().then((permission) => {
+      if (permission === "granted") showNotification();
+    });
+  }
 }
 
 function createPlaybackController(): PlaybackController {
@@ -924,14 +991,15 @@ function UpdateTypeIcon({ type }: { type: TrackingUpdate["type"] }) {
 
 function UpdateStatusBadge({ update }: { update: TrackingUpdate }) {
   const isComplete = update.state === "complete";
-  const styles = update.type === "call"
+  const isEscalation = update.severity === "escalation";
+  const styles = isEscalation
     ? isComplete
       ? "bg-red-50 text-red-700 ring-red-200"
       : "bg-red-50 text-red-600 ring-red-100"
     : isComplete
       ? "bg-green-100 text-green-700 ring-green-200"
       : "bg-gray-100 text-gray-600 ring-gray-200";
-  const label = update.type === "call"
+  const label = isEscalation
     ? isComplete
       ? "Escalated"
       : "Escalating"

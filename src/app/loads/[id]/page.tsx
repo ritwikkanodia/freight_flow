@@ -1,9 +1,9 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { fetchLoad, margin, formatUSD } from "@/lib/loads";
+import { fetchLoad, fetchLoadBoard, margin, formatUSD } from "@/lib/loads";
 import { StatusBadge } from "@/components/StatusBadge";
 import { LoadPostings } from "@/components/LoadPostings";
 import { SimulatedTrackingPanel } from "@/components/SimulatedTrackingPanel";
+import { getCarrierBidGroupForLoad, getCarrierBidsForBoardItems } from "@/lib/carrierBids.mjs";
 
 export default async function LoadDetailPage({
   params,
@@ -13,6 +13,8 @@ export default async function LoadDetailPage({
   const { id } = await params;
   const load = await fetchLoad(id);
   if (!load) notFound();
+  const boardItems = await fetchLoadBoard();
+  const bidGroup = getCarrierBidGroupForLoad(getCarrierBidsForBoardItems(boardItems), load.id);
 
   const m = margin(load);
   const ratePerMile = (rate: number) => `$${(rate / load.distanceMiles).toFixed(2)} / mi`;
@@ -22,10 +24,7 @@ export default async function LoadDetailPage({
     <main className="mx-auto w-full max-w-7xl px-6 py-8">
       {/* Header */}
       <div className="mb-6">
-        <Link href="/loads" className="text-sm text-gray-500 hover:text-orange-600">
-          ← Back to Loads
-        </Link>
-        <div className="mt-3 flex flex-wrap items-center gap-x-10 gap-y-2">
+        <div className="flex flex-wrap items-center gap-x-10 gap-y-2">
           <Field label="Load No." value={load.loadNo} big />
           <Field label="Customer Load No." value={load.customerLoadNo ?? "—"} big />
           <div>
@@ -59,6 +58,8 @@ export default async function LoadDetailPage({
           {load.postings && load.postings.length > 0 && (
             <LoadPostings postings={load.postings} loadId={load.id} />
           )}
+
+          <LoadBidsCard bidGroup={bidGroup} />
 
           <Card title={`Tasks (${doneTasks}/${load.tasks.length})`}>
             <ul className="divide-y divide-gray-100">
@@ -132,6 +133,81 @@ export default async function LoadDetailPage({
         </div>
       </div>
     </main>
+  );
+}
+
+function LoadBidsCard({
+  bidGroup,
+}: {
+  bidGroup: ReturnType<typeof getCarrierBidGroupForLoad>;
+}) {
+  if (!bidGroup) {
+    return (
+      <Card title="Carrier Bids">
+        <p className="text-sm text-gray-400">No carrier bids received for this load yet.</p>
+      </Card>
+    );
+  }
+
+  const bestBid = bidGroup.bids.reduce((lowest, bid) => bid.bidAmount < lowest.bidAmount ? bid : lowest, bidGroup.bids[0]);
+
+  return (
+    <Card title={`Carrier Bids (${bidGroup.bids.length})`}>
+      <div className="mb-4 rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div className="text-xs uppercase tracking-wide text-gray-500">Best bid</div>
+            <div className="mt-0.5 text-sm font-semibold text-gray-900">
+              {bestBid.carrierName} · {formatUSD(bestBid.bidAmount)}
+            </div>
+          </div>
+          <div className="text-xs text-gray-500">
+            Source: {bidGroup.sourceBoards.join(", ")}
+          </div>
+        </div>
+      </div>
+
+      <div className="divide-y divide-gray-100">
+        {bidGroup.bids.map((bid) => (
+          <div className="grid gap-3 py-3 first:pt-0 last:pb-0 sm:grid-cols-[1fr_auto]" key={`${bid.carrierName}-${bid.bidAmount}`}>
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="text-sm font-semibold text-gray-900">{bid.carrierName}</div>
+                <BidStatus status={bid.status} />
+              </div>
+              <p className="mt-1 text-xs leading-5 text-gray-500">{bid.notes}</p>
+              <div className="mt-2 text-xs text-gray-500">
+                {bid.contactName} · {bid.contactPhone} · {bid.submittedAt}
+              </div>
+            </div>
+            <div className="text-left sm:text-right">
+              <div className="text-sm font-semibold text-gray-900">{formatUSD(bid.bidAmount)}</div>
+              {bid.marginToPosted != null && (
+                <div className="text-xs text-green-700">
+                  {bid.marginToPosted >= 0 ? "+" : ""}
+                  {formatUSD(bid.marginToPosted)} vs posted
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+function BidStatus({ status }: { status: string }) {
+  const styles =
+    status === "recommended"
+      ? "bg-green-100 text-green-700 ring-green-200"
+      : status === "rejected"
+        ? "bg-red-100 text-red-700 ring-red-200"
+        : "bg-amber-100 text-amber-700 ring-amber-200";
+
+  return (
+    <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold capitalize ring-1 ${styles}`}>
+      {status}
+    </span>
   );
 }
 
