@@ -3,6 +3,9 @@
 Endpoints:
     GET /api/loads          -> list of loads (summary)
     GET /api/loads/<id>     -> single load with tasks + postings
+    GET /api/loadboard      -> live, carrier-facing feed of posted loads
+    POST /api/postings/<id>/post  -> publish a posting to the load board
+    POST /api/loads/<id>/interest -> carrier rate offer -> sets carrier_rate
     GET /api/health         -> health check
 
 Responses are shaped to match the frontend's TypeScript `Load` interface
@@ -11,8 +14,9 @@ Responses are shaped to match the frontend's TypeScript `Load` interface
 Run:  python app.py   (or: flask --app app run --port 5001)
 """
 import os
+from datetime import datetime
 
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from flask_cors import CORS
 
 from db import get_connection
@@ -86,6 +90,7 @@ def load_detail(conn, row):
 
 def posting_to_dict(p):
     posting = {
+        "id": p["id"],
         "partner": p["partner"],
         "referenceNo": p["reference_no"],
         "status": p["status"],
@@ -108,6 +113,48 @@ def posting_to_dict(p):
     return posting
 
 
+def loadboard_item(row):
+    """A live posting joined with its load's route + freight details.
+
+    This is the carrier-facing view: what a trucker sees on the load board.
+    `row` is a join of `postings` and `loads`.
+    """
+    item = {
+        "loadId": row["load_id"],
+        "loadNo": row["load_no"],
+        "partner": row["partner"],
+        "referenceNo": row["reference_no"],
+        "price": row["price"],
+        "postedAt": row["posted_at"],
+        "comments": row["comments"],
+        "contactMethods": row["contact_methods"],
+        "pickup": {
+            "city": row["pickup_city"],
+            "state": row["pickup_state"],
+            "dateTime": row["pickup_datetime"],
+        },
+        "dropoff": {
+            "city": row["dropoff_city"],
+            "state": row["dropoff_state"],
+            "dateTime": row["dropoff_datetime"],
+        },
+        "distanceMiles": row["distance_miles"],
+        "equipment": row["equipment"],
+        "loadSize": row["load_size"],
+        "driverType": row["driver_type"],
+        "weightLbs": row["weight_lbs"],
+        "temperatureMode": row["temperature_mode"],
+        "temperatureF": row["temperature_f"],
+    }
+    if row["agent_name"]:
+        item["agent"] = {
+            "name": row["agent_name"],
+            "phone": row["agent_phone"],
+            "email": row["agent_email"],
+        }
+    return item
+
+
 @app.get("/api/health")
 def health():
     return jsonify({"status": "ok"})
@@ -119,6 +166,89 @@ def list_loads():
     rows = conn.execute("SELECT * FROM loads ORDER BY rowid").fetchall()
     conn.close()
     return jsonify([load_summary(r) for r in rows])
+
+
+@app.get("/api/loadboard")
+def loadboard():
+    """Live load board: every posting currently Posted to a partner board.
+
+    This is the public, carrier-facing feed — truckers browse it to find
+    loads they can haul.
+    """
+    conn = get_connection()
+    rows = conn.execute(
+        """
+        SELECT p.*, l.load_no, l.pickup_city, l.pickup_state, l.pickup_datetime,
+               l.dropoff_city, l.dropoff_state, l.dropoff_datetime,
+               l.distance_miles, l.equipment, l.load_size, l.driver_type,
+               l.weight_lbs, l.temperature_mode, l.temperature_f
+        FROM postings p
+        JOIN loads l ON l.id = p.load_id
+        WHERE p.status = 'Posted'
+        ORDER BY p.posted_at DESC
+        """
+    ).fetchall()
+    conn.close()
+    return jsonify([loadboard_item(r) for r in rows])
+
+
+@app.post("/api/postings/<int:posting_id>/post")
+def post_to_loadboard(posting_id):
+    """Publish a posting to the load board (status -> Posted).
+
+    Stamps posted_at/posted_by so the posting shows up in the carrier-facing
+    /api/loadboard feed.
+    """
+    conn = get_connection()
+    row = conn.execute(
+        "SELECT id, load_id FROM postings WHERE id = ?", (posting_id,)
+    ).fetchone()
+    if row is None:
+        conn.close()
+        return jsonify({"error": "Posting not found"}), 404
+
+    now = datetime.now().strftime("%b %d, %Y, %I:%M %p")
+    conn.execute(
+        """
+        UPDATE postings
+        SET status = 'Posted', posted_at = ?, posted_by = COALESCE(posted_by, 'Broker')
+        WHERE id = ?
+        """,
+        (now, posting_id),
+    )
+    conn.commit()
+    updated = conn.execute(
+        "SELECT * FROM postings WHERE id = ?", (posting_id,)
+    ).fetchone()
+    conn.close()
+    return jsonify(posting_to_dict(updated))
+
+
+@app.post("/api/loads/<load_id>/interest")
+def express_interest(load_id):
+    """A carrier expresses interest in a posted load with a rate offer.
+
+    Body: {"rate": <number>}. The offered rate is written to the load's
+    carrier_rate. Returns the updated carrier_rate.
+    """
+    data = request.get_json(silent=True) or {}
+    rate = data.get("rate")
+    try:
+        rate = float(rate)
+    except (TypeError, ValueError):
+        return jsonify({"error": "A numeric 'rate' is required"}), 400
+    if rate <= 0:
+        return jsonify({"error": "Rate must be greater than 0"}), 400
+
+    conn = get_connection()
+    row = conn.execute("SELECT id FROM loads WHERE id = ?", (load_id,)).fetchone()
+    if row is None:
+        conn.close()
+        return jsonify({"error": "Load not found"}), 404
+    conn.execute("UPDATE loads SET carrier_rate = ? WHERE id = ?", (rate, load_id))
+    conn.commit()
+    conn.close()
+    return jsonify({"loadId": load_id, "carrierRate": rate})
 
 
 @app.get("/api/loads/<load_id>")
