@@ -11,9 +11,17 @@ export default async function LoadsPage() {
           <h1 className="text-2xl font-semibold text-gray-900">Loads</h1>
           <p className="mt-1 text-sm text-gray-500">{loads.length} loads</p>
         </div>
-        <button className="rounded-md bg-orange-500 px-4 py-2 text-sm font-medium text-white hover:bg-orange-600">
-          Create Load
-        </button>
+        <div className="flex items-center gap-3">
+          <Link
+            href="/loadboard"
+            className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          >
+            View Load Board
+          </Link>
+          <button className="rounded-md bg-orange-500 px-4 py-2 text-sm font-medium text-white hover:bg-orange-600">
+            Create Load
+          </button>
+        </div>
       </div>
 
       <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">

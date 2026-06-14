@@ -152,6 +152,25 @@ LOADS = [
         "temperatureMode": "Continuous",
         "temperatureF": 34,
         "tasks": COMMON_TASKS[:3],
+        "postings": [
+            {
+                "partner": "DAT",
+                "referenceNo": "021588",
+                "status": "Posted",
+                "comments": "Team | Pick 1 : Mcallen, TX | Drop 1 : Watsonville, CA",
+                "price": 5900,
+                "postId": "DAT065000000161AB22...",
+                "postedBy": "Sarah Voice Agent",
+                "postedAt": "Jun 14, 2026, 08:05 AM",
+                "contactMethods": "Primary Phone, Email",
+                "unpostAfter": "6 hours 0 mins",
+                "agent": {
+                    "name": "Sarah Voice Agent",
+                    "phone": "+1 (408) 843-5941",
+                    "email": "stella@hwyhaul.com",
+                },
+            },
+        ],
     },
     {
         "id": "236544",
@@ -170,6 +189,25 @@ LOADS = [
         "temperatureMode": "Continuous",
         "temperatureF": 36,
         "tasks": COMMON_TASKS[:3],
+        "postings": [
+            {
+                "partner": "Truckstop",
+                "referenceNo": "338201",
+                "status": "Posted",
+                "comments": "Solo | Pick 1 : Santa Maria, CA | Drop 1 : Boise, ID",
+                "price": 4200,
+                "postId": "TS065000000148CCD90...",
+                "postedBy": "Umair Ahmed",
+                "postedAt": "Jun 14, 2026, 07:20 AM",
+                "contactMethods": "Primary Phone, Email",
+                "unpostAfter": "8 hours 0 mins",
+                "agent": {
+                    "name": "Sarah Voice Agent",
+                    "phone": "+1 (408) 843-5941",
+                    "email": "stella@hwyhaul.com",
+                },
+            },
+        ],
     },
     {
         "id": "236048",
@@ -211,6 +249,25 @@ LOADS = [
         "temperatureMode": "Continuous",
         "temperatureF": 34,
         "tasks": COMMON_TASKS[:3],
+        "postings": [
+            {
+                "partner": "Trucker Path",
+                "referenceNo": "262044",
+                "status": "Posted",
+                "comments": "Solo | Pick 1 : Oxnard, CA | Drop 1 : Seattle, WA",
+                "price": 5200,
+                "postId": "TP065000000159BBEF7...",
+                "postedBy": "Sarah Voice Agent",
+                "postedAt": "Jun 14, 2026, 06:48 AM",
+                "contactMethods": "Primary Phone, Email",
+                "unpostAfter": "12 hours 0 mins",
+                "agent": {
+                    "name": "Sarah Voice Agent",
+                    "phone": "+1 (408) 843-5941",
+                    "email": "stella@hwyhaul.com",
+                },
+            },
+        ],
     },
     {
         "id": "236040",

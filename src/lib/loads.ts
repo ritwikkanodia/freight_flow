@@ -78,6 +78,32 @@ export interface Load {
   postings?: Posting[];
 }
 
+/**
+ * A single live posting as shown on the carrier-facing load board.
+ * Combines the posting (price, partner, contact) with the load's route
+ * and freight details. Returned by GET /api/loadboard.
+ */
+export interface LoadBoardItem {
+  loadId: string;
+  loadNo: string;
+  partner: Posting["partner"];
+  referenceNo: string;
+  price?: number;
+  postedAt?: string;
+  comments?: string;
+  contactMethods?: string;
+  pickup: Stop;
+  dropoff: Stop;
+  distanceMiles: number;
+  equipment: string;
+  loadSize: string;
+  driverType: string;
+  weightLbs: number;
+  temperatureMode?: string;
+  temperatureF?: number;
+  agent?: { name: string; phone: string; email: string };
+}
+
 const API_BASE = process.env.API_BASE_URL ?? "http://127.0.0.1:5001";
 
 /** Fetch the load list (summary rows for the table). */
@@ -93,6 +119,19 @@ export async function fetchLoad(id: string): Promise<Load | null> {
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`Failed to load load ${id} (${res.status})`);
   return res.json();
+}
+
+/** Fetch the live load board — every posting currently posted to a partner. */
+export async function fetchLoadBoard(): Promise<LoadBoardItem[]> {
+  const res = await fetch(`${API_BASE}/api/loadboard`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`Failed to load load board (${res.status})`);
+  return res.json();
+}
+
+/** Per-mile rate for a board item, e.g. "$4.57 / mi". Null if no price. */
+export function ratePerMile(item: LoadBoardItem): string | null {
+  if (item.price == null || !item.distanceMiles) return null;
+  return `$${(item.price / item.distanceMiles).toFixed(2)} / mi`;
 }
 
 export function margin(load: Load): { amount: number; pct: number } | null {

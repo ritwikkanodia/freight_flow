@@ -3,6 +3,7 @@
 Endpoints:
     GET /api/loads          -> list of loads (summary)
     GET /api/loads/<id>     -> single load with tasks + postings
+    GET /api/loadboard      -> live, carrier-facing feed of posted loads
     GET /api/health         -> health check
 
 Responses are shaped to match the frontend's TypeScript `Load` interface
@@ -108,6 +109,48 @@ def posting_to_dict(p):
     return posting
 
 
+def loadboard_item(row):
+    """A live posting joined with its load's route + freight details.
+
+    This is the carrier-facing view: what a trucker sees on the load board.
+    `row` is a join of `postings` and `loads`.
+    """
+    item = {
+        "loadId": row["load_id"],
+        "loadNo": row["load_no"],
+        "partner": row["partner"],
+        "referenceNo": row["reference_no"],
+        "price": row["price"],
+        "postedAt": row["posted_at"],
+        "comments": row["comments"],
+        "contactMethods": row["contact_methods"],
+        "pickup": {
+            "city": row["pickup_city"],
+            "state": row["pickup_state"],
+            "dateTime": row["pickup_datetime"],
+        },
+        "dropoff": {
+            "city": row["dropoff_city"],
+            "state": row["dropoff_state"],
+            "dateTime": row["dropoff_datetime"],
+        },
+        "distanceMiles": row["distance_miles"],
+        "equipment": row["equipment"],
+        "loadSize": row["load_size"],
+        "driverType": row["driver_type"],
+        "weightLbs": row["weight_lbs"],
+        "temperatureMode": row["temperature_mode"],
+        "temperatureF": row["temperature_f"],
+    }
+    if row["agent_name"]:
+        item["agent"] = {
+            "name": row["agent_name"],
+            "phone": row["agent_phone"],
+            "email": row["agent_email"],
+        }
+    return item
+
+
 @app.get("/api/health")
 def health():
     return jsonify({"status": "ok"})
@@ -119,6 +162,30 @@ def list_loads():
     rows = conn.execute("SELECT * FROM loads ORDER BY rowid").fetchall()
     conn.close()
     return jsonify([load_summary(r) for r in rows])
+
+
+@app.get("/api/loadboard")
+def loadboard():
+    """Live load board: every posting currently Posted to a partner board.
+
+    This is the public, carrier-facing feed — truckers browse it to find
+    loads they can haul.
+    """
+    conn = get_connection()
+    rows = conn.execute(
+        """
+        SELECT p.*, l.load_no, l.pickup_city, l.pickup_state, l.pickup_datetime,
+               l.dropoff_city, l.dropoff_state, l.dropoff_datetime,
+               l.distance_miles, l.equipment, l.load_size, l.driver_type,
+               l.weight_lbs, l.temperature_mode, l.temperature_f
+        FROM postings p
+        JOIN loads l ON l.id = p.load_id
+        WHERE p.status = 'Posted'
+        ORDER BY p.posted_at DESC
+        """
+    ).fetchall()
+    conn.close()
+    return jsonify([loadboard_item(r) for r in rows])
 
 
 @app.get("/api/loads/<load_id>")
