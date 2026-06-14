@@ -75,8 +75,8 @@ function BoardCard({ item }: { item: LoadBoardItem }) {
         />
       </div>
 
-      {/* Freight details */}
-      <div className="flex flex-wrap gap-2 px-5 pb-5">
+      {/* Freight details — reserve two rows so cards stay aligned */}
+      <div className="flex min-h-[3.75rem] flex-wrap content-start gap-2 px-5 pb-4">
         <Tag>{item.equipment}</Tag>
         <Tag>{item.distanceMiles.toLocaleString()} mi</Tag>
         <Tag>{item.weightLbs.toLocaleString()} lbs</Tag>
@@ -85,7 +85,7 @@ function BoardCard({ item }: { item: LoadBoardItem }) {
       </div>
 
       {item.comments && (
-        <p className="px-5 pb-4 text-xs text-gray-500">{item.comments}</p>
+        <p className="line-clamp-1 px-5 pb-4 text-xs text-gray-500">{item.comments}</p>
       )}
 
       {/* Contact / CTA */}
