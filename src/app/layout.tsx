@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Hwy Haul — TMS",
+  title: "Freight Flow — TMS",
   description: "Transport Management System (MVP)",
 };
 
