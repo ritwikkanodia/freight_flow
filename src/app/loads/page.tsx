@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { loads, margin, formatUSD } from "@/lib/loads";
+import { fetchLoads, margin, formatUSD } from "@/lib/loads";
 import { StatusBadge } from "@/components/StatusBadge";
 
-export default function LoadsPage() {
+export default async function LoadsPage() {
+  const loads = await fetchLoads();
   return (
     <main className="mx-auto w-full max-w-7xl px-6 py-8">
       <div className="mb-6 flex items-center justify-between">

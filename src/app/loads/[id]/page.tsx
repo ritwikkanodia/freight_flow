@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getLoad, margin, formatUSD } from "@/lib/loads";
+import { fetchLoad, margin, formatUSD } from "@/lib/loads";
 import { StatusBadge } from "@/components/StatusBadge";
+import { LoadPostings } from "@/components/LoadPostings";
 
 export default async function LoadDetailPage({
   params,
@@ -9,7 +10,7 @@ export default async function LoadDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const load = getLoad(id);
+  const load = await fetchLoad(id);
   if (!load) notFound();
 
   const m = margin(load);
@@ -64,6 +65,10 @@ export default async function LoadDetailPage({
               {load.temperatureF != null && <Info label="Temperature" value={`${load.temperatureF} °F`} />}
             </dl>
           </Card>
+
+          {load.postings && load.postings.length > 0 && (
+            <LoadPostings postings={load.postings} />
+          )}
 
           <Card title={`Tasks (${doneTasks}/${load.tasks.length})`}>
             <ul className="divide-y divide-gray-100">
